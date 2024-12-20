@@ -59,6 +59,8 @@ class EventKind {
 
   static const int GROUP_CREATE_GROUP = 9007;
 
+  static const int GROUP_CREATE_INVITE = 9009;
+
   static const int GROUP_JOIN = 9021;
 
   static const int GROUP_LEAVE = 9022;
