@@ -139,32 +139,32 @@ class EventMemBox implements FindEventInterface {
     return true;
   }
 
-  bool addList(List<Event> list) {
+  bool addList(List<Event> list, [int index = 0]) {
     bool added = false;
+    var eventsToAdd = <Event>[];
+
     for (var event in list) {
       var oldEvent = _idMap[event.id];
       if (oldEvent == null) {
         _idMap[event.id] = event;
-        _eventList.add(event);
+        eventsToAdd.add(event);
         added = true;
-      } else {
-        if (event.sources.isNotEmpty &&
-            !oldEvent.sources.contains(event.sources[0])) {
-          oldEvent.sources.add(event.sources[0]);
-        }
+      } else if (event.sources.isNotEmpty &&
+          !oldEvent.sources.contains(event.sources[0])) {
+        oldEvent.sources.add(event.sources[0]);
       }
     }
 
-    if (added && sortAfterAdd) {
-      sort();
+    if (eventsToAdd.isNotEmpty) {
+      _eventList.insertAll(index, eventsToAdd);
     }
 
     return added;
   }
 
-  void addBox(EventMemBox b) {
+  void addBox(EventMemBox b, [int index = 0]) {
     var all = b.all();
-    addList(all);
+    addList(all, index);
   }
 
   bool isEmpty() {
