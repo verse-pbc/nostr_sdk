@@ -167,6 +167,10 @@ class EventMemBox implements FindEventInterface {
     addList(all);
   }
 
+  bool contains(String id) {
+    return _idMap[id] != null;
+  }
+
   bool isEmpty() {
     return _eventList.isEmpty;
   }
