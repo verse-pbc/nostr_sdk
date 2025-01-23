@@ -151,9 +151,29 @@ class Nostr {
     _pool.addInitQuery(filters, onEvent, id: id, onComplete: onComplete);
   }
 
-  String subscribe(List<Map<String, dynamic>> filters, Function(Event) onEvent,
-      {String? id}) {
-    return _pool.subscribe(filters, onEvent, id: id);
+  bool tempRelayHasSubscription(String relayAddr) {
+    return _pool.tempRelayHasSubscription(relayAddr);
+  }
+
+  String subscribe(
+    List<Map<String, dynamic>> filters,
+    Function(Event) onEvent, {
+    String? id,
+    List<String>? tempRelays,
+    List<String>? targetRelays,
+    List<int> relayTypes = RelayType.ALL,
+    bool sendAfterAuth =
+        false, // if relay not connected, it will send after auth
+  }) {
+    return _pool.subscribe(
+      filters,
+      onEvent,
+      id: id,
+      tempRelays: tempRelays,
+      targetRelays: targetRelays,
+      relayTypes: relayTypes,
+      sendAfterAuth: sendAfterAuth,
+    );
   }
 
   void unsubscribe(String id) {
@@ -187,6 +207,7 @@ class Nostr {
     String? id,
     Function? onComplete,
     List<String>? tempRelays,
+    List<String>? targetRelays,
     List<int> relayTypes = RelayType.ALL,
     bool sendAfterAuth = false,
   }) {
@@ -196,6 +217,7 @@ class Nostr {
       id: id,
       onComplete: onComplete,
       tempRelays: tempRelays,
+      targetRelays: targetRelays,
       sendAfterAuth: sendAfterAuth,
     );
   }
