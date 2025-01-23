@@ -640,7 +640,7 @@ class RelayPool {
     return tempRelay;
   }
 
-  List<String> getExtraReadableRelays(
+  List<String> getExtralReadableRelays(
       List<String> extraRelays, int maxRelayNum) {
     List<String> list = [];
 
