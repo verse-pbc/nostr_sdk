@@ -290,9 +290,10 @@ class RelayPool {
             }
             relay.pendingAuthedMessages.clear();
 
-            // send subcription, but some subscrpition will send twice
+            // Resubscribe to all active subscriptions after authentication
             if (relay.hasSubscription()) {
               var subs = relay.getSubscriptions();
+              // Resend each subscription request to the relay
               for (var subscription in subs) {
                 relay.send(subscription.toJson());
               }
@@ -316,10 +317,10 @@ class RelayPool {
     }
   }
 
-  /// subscribe shoud be a long time filter search.
-  /// like: subscribe the newest event、notice.
-  /// subscribe info will hold in reply pool and close in reply pool.
-  /// subscribe can be subscribe when new relay put into pool.
+  /// Subscribes to events matching the given filters across specified relays.
+  ///
+  /// This creates a long-term subscription that will continue receiving events
+  /// until explicitly unsubscribed. This is ideal for monitoring new events or notices.
   String subscribe(
     List<Map<String, dynamic>> filters,
     Function(Event) onEvent, {
@@ -327,69 +328,80 @@ class RelayPool {
     List<String>? tempRelays,
     List<String>? targetRelays,
     List<int> relayTypes = RelayType.ALL,
-    bool sendAfterAuth =
-        false, // if relay not connected, it will send after auth
+    bool sendAfterAuth = false,
   }) {
+    // Validate that we have at least one filter
     if (filters.isEmpty) {
       throw ArgumentError("No filters given", "filters");
     }
 
-    handleAddrList(tempRelays);
-    handleAddrList(targetRelays);
+    // Process and normalize relay addresses
+    if (tempRelays != null) {
+      tempRelays =
+          tempRelays.map((addr) => RelayAddrUtil.handle(addr)).toList();
+    }
+    if (targetRelays != null) {
+      targetRelays =
+          targetRelays.map((addr) => RelayAddrUtil.handle(addr)).toList();
+    }
 
+    // Create subscription and store it in active subscriptions map
     final Subscription subscription = Subscription(filters, onEvent, id);
     _subscriptions[subscription.id] = subscription;
-    // send(subscription.toJson());
 
-    // tempRelay, only query those relay which has bean provide
-    if (tempRelays != null &&
-        tempRelays.isNotEmpty &&
-        relayTypes.contains(RelayType.TEMP)) {
+    // Handle temporary relays first - these are one-time use relays
+    if (tempRelays != null) {
       for (var tempRelayAddr in tempRelays) {
-        // check if normal relays has this temp relay, try to get relay from normal relays
+        // Try to get existing relay or create a new temporary one
         Relay? relay = _relays[tempRelayAddr];
         relay ??= checkAndGenTempRelay(tempRelayAddr);
 
-        relayDoSubscribe(relay, subscription, sendAfterAuth,
-            runBeforeConnected: true);
+        subscribeToRelay(relay, subscription, sendAfterAuth,
+            allowPending: true);
       }
     }
 
-    // normal relay, usually will query all the normal relays, but if targetRelays has provide, it only query from the provided querys.
+    // Process normal relays if included in relay types
     if (relayTypes.contains(RelayType.NORMAL)) {
       for (var entry in _relays.entries) {
         var relayAddr = entry.key;
         var relay = entry.value;
 
+        // Skip if not in target relays when specified
         if (targetRelays != null) {
           if (!targetRelays.contains(relayAddr)) {
             continue;
           }
         }
 
-        relayDoSubscribe(relay, subscription, sendAfterAuth);
+        subscribeToRelay(relay, subscription, sendAfterAuth);
       }
     }
 
-    // cache relay
+    // Subscribe to cache relays if included in relay types
     if (relayTypes.contains(RelayType.CACHE)) {
       for (var relay in _cacheRelays.values) {
-        relayDoSubscribe(relay, subscription, sendAfterAuth);
+        subscribeToRelay(relay, subscription, sendAfterAuth);
       }
     }
 
-    // local relay
+    // Subscribe to local relay if available and included in relay types
     if (relayTypes.contains(RelayType.LOCAL) && relayLocal != null) {
-      relayDoSubscribe(relayLocal!, subscription, sendAfterAuth);
+      subscribeToRelay(relayLocal!, subscription, sendAfterAuth);
     }
 
     return subscription.id;
   }
 
-  bool relayDoSubscribe(
+  /// Subscribes to a specific relay with the given subscription parameters.
+  /// Returns true if subscription was successful or queued, false otherwise.
+  ///
+  /// [allowPending] permits subscription to be queued before relay connection
+  bool subscribeToRelay(
       Relay relay, Subscription subscription, bool sendAfterAuth,
-      {bool runBeforeConnected = false}) {
-    if ((!runBeforeConnected &&
+      {bool allowPending = false}) {
+    // Skip if relay is not connected or readable
+    if ((!allowPending &&
             relay.relayStatus.connected != ClientConneccted.CONNECTED) ||
         !relay.relayStatus.readAccess) {
       return false;
@@ -399,18 +411,20 @@ class RelayPool {
 
     try {
       relay.saveSubscription(subscription);
-
       var message = subscription.toJson();
+
+      // Queue message for after authentication if needed
       if (sendAfterAuth && !relay.relayStatus.authed) {
         relay.pendingAuthedMessages.add(message);
         return true;
+      }
+
+      // Send immediately if connected, otherwise queue
+      if (relay.relayStatus.connected == ClientConneccted.CONNECTED) {
+        return relay.send(message);
       } else {
-        if (relay.relayStatus.connected == ClientConneccted.CONNECTED) {
-          return relay.send(message);
-        } else {
-          relay.pendingMessages.add(message);
-          return true;
-        }
+        relay.pendingMessages.add(message);
+        return true;
       }
     } catch (err) {
       log(err.toString());
@@ -420,47 +434,33 @@ class RelayPool {
     return false;
   }
 
+  /// Checks if a temporary relay has any active subscriptions
+  /// Returns true if the relay exists and has subscriptions
   bool tempRelayHasSubscription(String relayAddr) {
-    var relay = _tempRelays[relayAddr];
-    if (relay != null) {
-      return relay.hasSubscription();
-    }
-
-    return false;
+    // Return subscription status if relay exists, otherwise false
+    return _tempRelays[relayAddr]?.hasSubscription() ?? false;
   }
 
+  /// Unsubscribes from a subscription or query by its ID.
+  /// Handles both active subscriptions and one-time queries across all relay types.
   void unsubscribe(String id) {
     final subscription = _subscriptions.remove(id);
     if (subscription != null) {
-      // check query and send close
-      var it = _relays.values;
-      for (var relay in it) {
-        relay.checkAndCompleteSubscription(id);
-      }
-
-      it = _tempRelays.values;
-      for (var relay in it) {
-        relay.checkAndCompleteSubscription(id);
-      }
-
-      it = _cacheRelays.values;
-      for (var relay in it) {
-        relay.checkAndCompleteSubscription(id);
+      // Close subscription across all relay types
+      for (var relay in [
+        ..._relays.values,
+        ..._tempRelays.values,
+        ..._cacheRelays.values
+      ]) {
+        relay.closeSubcriptionIfNeeded(id);
       }
     } else {
-      // check query and send close
-      var it = _relays.values;
-      for (var relay in it) {
-        relay.checkAndCompleteQuery(id);
-      }
-
-      it = _tempRelays.values;
-      for (var relay in it) {
-        relay.checkAndCompleteQuery(id);
-      }
-
-      it = _cacheRelays.values;
-      for (var relay in it) {
+      // Complete query across all relay types
+      for (var relay in [
+        ..._relays.values,
+        ..._tempRelays.values,
+        ..._cacheRelays.values
+      ]) {
         relay.checkAndCompleteQuery(id);
       }
     }
@@ -491,14 +491,9 @@ class RelayPool {
     return id;
   }
 
-  void handleAddrList(List<String>? addrList) {
-    if (addrList != null) {
-      var length = addrList.length;
-      for (var i = 0; i < length; i++) {
-        var relayAddr = addrList[i];
-        addrList[i] = RelayAddrUtil.handle(relayAddr);
-      }
-    }
+  void handleAddrList(List<String> addrList) {
+    // Create a new list with processed addresses
+    addrList.map((relayAddr) => RelayAddrUtil.handle(relayAddr)).toList();
   }
 
   /// query should be a one time filter search.
@@ -521,8 +516,14 @@ class RelayPool {
       throw ArgumentError("No filters given", "filters");
     }
 
-    handleAddrList(tempRelays);
-    handleAddrList(targetRelays);
+    if (tempRelays != null) {
+      tempRelays =
+          tempRelays.map((addr) => RelayAddrUtil.handle(addr)).toList();
+    }
+    if (targetRelays != null) {
+      targetRelays =
+          targetRelays.map((addr) => RelayAddrUtil.handle(addr)).toList();
+    }
 
     Subscription subscription = Subscription(filters, onEvent, id);
     if (onComplete != null) {
@@ -639,33 +640,33 @@ class RelayPool {
     return tempRelay;
   }
 
-  List<String> getExtralReadableRelays(
-      List<String> extralRelays, int maxRelayNum) {
+  List<String> getExtraReadableRelays(
+      List<String> extraRelays, int maxRelayNum) {
     List<String> list = [];
 
     int sameNum = 0;
-    for (var extralRelay in extralRelays) {
-      extralRelay = RelayAddrUtil.handle(extralRelay);
+    for (var extraRelay in extraRelays) {
+      extraRelay = RelayAddrUtil.handle(extraRelay);
 
-      var relay = _relays[extralRelay];
+      var relay = _relays[extraRelay];
       if (relay == null || !relay.relayStatus.readAccess) {
         // not contains or can't readable
-        list.add(extralRelay);
+        list.add(extraRelay);
       } else {
         sameNum++;
       }
     }
 
-    var needExtralNum = maxRelayNum - sameNum;
-    if (needExtralNum <= 0) {
+    var needExtraNum = maxRelayNum - sameNum;
+    if (needExtraNum <= 0) {
       return [];
     }
 
-    if (list.length < needExtralNum) {
+    if (list.length < needExtraNum) {
       return list;
     }
 
-    return list.sublist(0, needExtralNum);
+    return list.sublist(0, needExtraNum);
   }
 
   void removeTempRelay(String addr) {

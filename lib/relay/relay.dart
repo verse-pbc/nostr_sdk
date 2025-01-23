@@ -94,15 +94,20 @@ abstract class Relay {
     }
   }
 
+  /// Returns a list of all active subscriptions for this relay connection.
   List<Subscription> getSubscriptions() {
     return _subscriptions.values.toList();
   }
 
+  /// Stores a new subscription in the relay's subscription map.
   void saveSubscription(Subscription subscription) {
     _subscriptions[subscription.id] = subscription;
   }
 
-  bool checkAndCompleteSubscription(String id) {
+  /// Attempts to close a subscription with the given ID.
+  /// Sends a CLOSE message to the relay if subscription exists
+  /// Returns true if subscription was found and closed, false otherwise
+  bool closeSubcriptionIfNeeded(String id) {
     // all subscription should be close
     var sub = _subscriptions.remove(id);
     if (sub != null) {
@@ -112,6 +117,7 @@ abstract class Relay {
     return false;
   }
 
+  /// Checks if this relay has any active subscriptions.
   bool hasSubscription() {
     return _subscriptions.isNotEmpty;
   }

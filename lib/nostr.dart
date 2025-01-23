@@ -151,10 +151,17 @@ class Nostr {
     _pool.addInitQuery(filters, onEvent, id: id, onComplete: onComplete);
   }
 
+  /// Checks if a temporary relay has any active subscriptions
+  ///
+  /// [relayAddr] The relay address to check
+  /// Returns true if the relay has active subscriptions.
   bool tempRelayHasSubscription(String relayAddr) {
     return _pool.tempRelayHasSubscription(relayAddr);
   }
 
+  /// Subscribes to events matching the given filters.
+  ///
+  /// Returns the subscription ID that can be used to unsubscribe later
   String subscribe(
     List<Map<String, dynamic>> filters,
     Function(Event) onEvent, {
@@ -163,7 +170,7 @@ class Nostr {
     List<String>? targetRelays,
     List<int> relayTypes = RelayType.ALL,
     bool sendAfterAuth =
-        false, // if relay not connected, it will send after auth
+        false, // Defer subscription until after relay authentication is complete
   }) {
     return _pool.subscribe(
       filters,
@@ -260,9 +267,9 @@ class Nostr {
     _pool.reconnect();
   }
 
-  List<String> getExtralReadableRelays(
-      List<String> extralRelays, int maxRelayNum) {
-    return _pool.getExtralReadableRelays(extralRelays, maxRelayNum);
+  List<String> getExtraReadableRelays(
+      List<String> extraRelays, int maxRelayNum) {
+    return _pool.getExtraReadableRelays(extraRelays, maxRelayNum);
   }
 
   void removeTempRelay(String addr) {
