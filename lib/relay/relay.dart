@@ -21,6 +21,9 @@ abstract class Relay {
 
   Function(Relay, List<dynamic>)? onMessage;
 
+  // subscriptions
+  final Map<String, Subscription> _subscriptions = {};
+
   // quries
   final Map<String, Subscription> _queries = {};
 
@@ -90,6 +93,30 @@ abstract class Relay {
       });
     }
   }
+
+  /// Returns a list of all active subscriptions for this relay connection.
+  List<Subscription> get subscriptions => _subscriptions.values.toList();
+
+  /// Stores a new subscription in the relay's subscription map.
+  void saveSubscription(Subscription subscription) {
+    _subscriptions[subscription.id] = subscription;
+  }
+
+  /// Attempts to close a subscription with the given ID.
+  /// Sends a CLOSE message to the relay if subscription exists
+  /// Returns true if subscription was found and closed, false otherwise
+  bool closeSubscriptionIfNeeded(String id) {
+    // all subscription should be close
+    var sub = _subscriptions.remove(id);
+    if (sub != null) {
+      send(["CLOSE", id]);
+      return true;
+    }
+    return false;
+  }
+
+  /// Checks if this relay has any active subscriptions.
+  bool get hasSubscription => _subscriptions.isNotEmpty;
 
   void saveQuery(Subscription subscription) {
     _queries[subscription.id] = subscription;
