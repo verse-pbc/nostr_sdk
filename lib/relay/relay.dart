@@ -118,9 +118,7 @@ abstract class Relay {
   }
 
   /// Checks if this relay has any active subscriptions.
-  bool hasSubscription() {
-    return _subscriptions.isNotEmpty;
-  }
+  bool get hasSubscription => _subscriptions.isNotEmpty;
 
   void saveQuery(Subscription subscription) {
     _queries[subscription.id] = subscription;
