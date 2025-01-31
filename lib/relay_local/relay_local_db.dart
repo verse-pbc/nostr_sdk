@@ -35,6 +35,10 @@ class RelayLocalDB with LaterFunction {
     return RelayLocalDB._(database);
   }
 
+  Future<void> close() async {
+    _database.close();
+  }
+
   static Future<String> getFilepath() async {
     String path = _dbName;
 
