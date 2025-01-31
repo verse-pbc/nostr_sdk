@@ -107,7 +107,7 @@ abstract class Relay {
   /// Attempts to close a subscription with the given ID.
   /// Sends a CLOSE message to the relay if subscription exists
   /// Returns true if subscription was found and closed, false otherwise
-  bool closeSubcriptionIfNeeded(String id) {
+  bool closeSubscriptionIfNeeded(String id) {
     // all subscription should be close
     var sub = _subscriptions.remove(id);
     if (sub != null) {
