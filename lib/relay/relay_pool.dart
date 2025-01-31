@@ -292,7 +292,7 @@ class RelayPool {
 
             // Resubscribe to all active subscriptions after authentication
             if (relay.hasSubscription()) {
-              var subs = relay.getSubscriptions();
+              final subs = relay.getSubscriptions();
               // Resend each subscription request to the relay
               for (var subscription in subs) {
                 relay.send(subscription.toJson());
