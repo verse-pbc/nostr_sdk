@@ -18,7 +18,7 @@ class Nostr {
 
   NostrSigner nostrSigner;
 
-  String _publicKey;
+  final String _publicKey;
 
   Function(String, String)? onNotice;
 
@@ -161,7 +161,21 @@ class Nostr {
 
   /// Subscribes to events matching the given filters.
   ///
+  /// Parameters:
+  /// - [filters] The event filters to match against.
+  /// - [onEvent] Callback function when matching events are received.
+  /// - [id] Optional subscription identifier
+  /// - [tempRelays] Optional list of temporary relays used for one-off operations. These relays
+  ///   are created for specific queries and discarded after use, unlike the main relay pool.
+  /// - [targetRelays] Optional list of specific relays chosen from your configured relay set
+  ///   to handle this particular subscription.
+  /// - [relayTypes] Types of relays to use.
+  /// - [sendAfterAuth] Whether to wait for relay authentication before subscribing.
+  ///
   /// Returns the subscription ID that can be used to unsubscribe later
+  // TODO: Rename relay parameters globally for clarity:
+  //  - tempRelays
+  //  - targetRelays
   String subscribe(
     List<Map<String, dynamic>> filters,
     Function(Event) onEvent, {
@@ -169,8 +183,7 @@ class Nostr {
     List<String>? tempRelays,
     List<String>? targetRelays,
     List<int> relayTypes = RelayType.ALL,
-    bool sendAfterAuth =
-        false, // Defer subscription until after relay authentication is complete
+    bool sendAfterAuth = false,
   }) {
     return _pool.subscribe(
       filters,
