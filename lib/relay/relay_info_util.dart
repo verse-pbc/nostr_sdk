@@ -3,6 +3,8 @@ import 'package:http/http.dart' as http;
 import 'relay_info.dart';
 
 class RelayInfoUtil {
+  static http.Client client = http.Client(); // Static stored property
+
   static Future<RelayInfo?> get(String url) async {
     late Uri uri;
     if (url.startsWith("wss://")) {
@@ -16,7 +18,7 @@ class RelayInfoUtil {
 
     try {
       final response =
-          await http.get(uri, headers: {'Accept': 'application/nostr+json'});
+          await client.get(uri, headers: {'Accept': 'application/nostr+json'});
       final decodedResponse = jsonDecode(response.body) as Map;
       return RelayInfo.fromJson(decodedResponse);
     } catch (e) {
