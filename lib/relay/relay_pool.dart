@@ -93,8 +93,8 @@ class RelayPool {
 
   List<Relay> activeRelays() {
     List<Relay> list = [];
-    var it = _relays.values;
-    for (var relay in it) {
+    final it = _relays.values;
+    for (final relay in it) {
       if (relay.relayStatus.connected == ClientConneccted.CONNECTED) {
         list.add(relay);
       }
@@ -291,8 +291,8 @@ class RelayPool {
             relay.pendingAuthedMessages.clear();
 
             // Resubscribe to all active subscriptions after authentication
-            if (relay.hasSubscription()) {
-              final subs = relay.getSubscriptions();
+            if (relay.hasSubscription) {
+              final subs = relay.subscriptions;
               // Resend each subscription request to the relay
               for (var subscription in subs) {
                 relay.send(subscription.toJson());
@@ -438,7 +438,7 @@ class RelayPool {
   /// Returns true if the relay exists and has subscriptions
   bool tempRelayHasSubscription(String relayAddr) {
     // Return subscription status if relay exists, otherwise false
-    return _tempRelays[relayAddr]?.hasSubscription() ?? false;
+    return _tempRelays[relayAddr]?.hasSubscription ?? false;
   }
 
   /// Unsubscribes from a subscription or query by its ID.
@@ -452,7 +452,7 @@ class RelayPool {
         ..._tempRelays.values,
         ..._cacheRelays.values
       ]) {
-        relay.closeSubcriptionIfNeeded(id);
+        relay.closeSubscriptionIfNeeded(id);
       }
     } else {
       // Complete query across all relay types
@@ -645,10 +645,10 @@ class RelayPool {
     List<String> list = [];
 
     int sameNum = 0;
-    for (var extraRelay in extraRelays) {
-      extraRelay = RelayAddrUtil.handle(extraRelay);
+    for (final extraRelay in extraRelays) {
+      final relayAddr = RelayAddrUtil.handle(extraRelay);
 
-      var relay = _relays[extraRelay];
+      final relay = _relays[relayAddr];
       if (relay == null || !relay.relayStatus.readAccess) {
         // not contains or can't readable
         list.add(extraRelay);
@@ -657,7 +657,7 @@ class RelayPool {
       }
     }
 
-    var needExtraNum = maxRelayNum - sameNum;
+    final needExtraNum = maxRelayNum - sameNum;
     if (needExtraNum <= 0) {
       return [];
     }
