@@ -95,9 +95,7 @@ abstract class Relay {
   }
 
   /// Returns a list of all active subscriptions for this relay connection.
-  List<Subscription> getSubscriptions() {
-    return _subscriptions.values.toList();
-  }
+  List<Subscription> get subscriptions => _subscriptions.values.toList();
 
   /// Stores a new subscription in the relay's subscription map.
   void saveSubscription(Subscription subscription) {
