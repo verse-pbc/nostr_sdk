@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:android_content_provider/android_content_provider.dart';
-import 'package:nostr_sdk/utils/string_util.dart';
 import 'package:synchronized/synchronized.dart';
 
 import '../android_plugin/android_plugin.dart';
@@ -9,6 +8,7 @@ import '../android_plugin/android_plugin_intent.dart';
 import '../event.dart';
 import '../nip19/nip19.dart';
 import '../signer/nostr_signer.dart';
+import '../utils/string_util.dart';
 
 ///
 /// Android Local Nostr Signer
