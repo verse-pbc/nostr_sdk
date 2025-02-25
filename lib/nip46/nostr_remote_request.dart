@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:sentry/sentry.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../signer/nostr_signer.dart';
 import '../utils/string_util.dart';
