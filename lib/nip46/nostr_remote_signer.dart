@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 
+import 'package:sentry_flutter/sentry_flutter.dart';
+
 import '../nip19/nip19.dart';
 import '../relay/client_connected.dart';
 import '../event.dart';
@@ -20,21 +22,33 @@ import 'nostr_remote_response.dart';
 import 'nostr_remote_signer_info.dart';
 
 class NostrRemoteSigner extends NostrSigner {
+  /// The mode of the relay, either base or isolate.
   int relayMode;
 
+  /// Information about the remote signer.
   NostrRemoteSignerInfo info;
 
+  /// An instance of [LocalNostrSigner] for local signing operations.
   late LocalNostrSigner localNostrSigner;
 
+  /// The list of [Relay] objects this signer is connected to.
+  List<Relay> relays = [];
+
+  /// A map of request callbacks.
+  Map<String, Completer<String?>> callbacks = {};
+
+  /// Remote signer public key tags.
+  List<String>? _remotePubkeyTags;
+
+  /// Constructs a [NostrRemoteSigner] with the specified relay mode and signer
+  /// info.
   NostrRemoteSigner(
     this.relayMode,
     this.info,
   );
 
-  List<Relay> relays = [];
-
-  Map<String, Completer<String?>> callbacks = {};
-
+  /// Connects to the remote relays.
+  /// If [sendConnectRequest] is true, it sends a connection request.
   Future<void> connect({bool sendConnectRequest = true}) async {
     if (StringUtil.isBlank(info.nsec)) {
       return;
@@ -53,26 +67,23 @@ class NostrRemoteSigner extends NostrSigner {
         info.optionalSecret ?? "",
         "sign_event,get_relays,get_public_key,nip04_encrypt,nip04_decrypt,nip44_encrypt,nip44_decrypt"
       ]);
-      // send connect but not await this request.
       await sendAndWaitForResult(request, timeout: 120);
     }
   }
 
+  /// Pulls the public key from the remote signer.
   Future<String?> pullPubkey() async {
     var request = NostrRemoteRequest("get_public_key", []);
-    // send connect but not await this request.
     var pubkey = await sendAndWaitForResult(request, timeout: 120);
-    // print("pullPubkey result $pubkey");
     info.userPubkey = pubkey;
     return pubkey;
   }
 
+  /// Handles incoming messages from the relay.
   Future<void> onMessage(Relay relay, List<dynamic> json) async {
     final messageType = json[0];
     if (messageType == 'EVENT') {
       try {
-        // print("return ${jsonEncode(json[2])}");
-        // add some statistics
         relay.relayStatus.noteReceive();
 
         final event = Event.fromJson(json[2]);
@@ -82,20 +93,17 @@ class NostrRemoteSigner extends NostrSigner {
           if (response != null) {
             var completer = callbacks.remove(response.id);
             if (completer != null) {
-              // print("result ${response.result}");
               completer.complete(response.result);
             }
           }
         }
-      } catch (err) {
-        log(err.toString());
+      } catch (exception, stackTrace) {
+        await Sentry.captureException(exception, stackTrace: stackTrace);
       }
-    } else if (messageType == 'EOSE') {
-      // ignore EOSE
-    } else if (messageType == "NOTICE") {
-    } else if (messageType == "AUTH") {}
+    }
   }
 
+  /// Connects to a relay based on the specified address.
   Future<Relay> _connectToRelay(String relayAddr) async {
     RelayStatus relayStatus = RelayStatus(relayAddr);
     Relay? relay;
@@ -125,6 +133,7 @@ class NostrRemoteSigner extends NostrSigner {
     return relay;
   }
 
+  /// Adds a pending query message to the relay.
   Future<void> addPenddingQueryMsg(Relay relay) async {
     // add a query event
     var queryMsg = await genQueryMsg();
@@ -133,6 +142,7 @@ class NostrRemoteSigner extends NostrSigner {
     }
   }
 
+  /// Generates a query message.
   Future<List?> genQueryMsg() async {
     var pubkey = await localNostrSigner.getPublicKey();
     if (pubkey == null) {
@@ -149,6 +159,7 @@ class NostrRemoteSigner extends NostrSigner {
     return queryMsg;
   }
 
+  /// Sends a request and waits for the result.
   Future<String?> sendAndWaitForResult(NostrRemoteRequest request,
       {int timeout = 60}) async {
     var senderPubkey = await localNostrSigner.getPublicKey();
@@ -160,9 +171,7 @@ class NostrRemoteSigner extends NostrSigner {
       event = await localNostrSigner.signEvent(event);
       if (event != null) {
         var json = ["EVENT", event.toJson()];
-        // print(jsonEncode(json));
 
-        // set completer to callbacks
         var completer = Completer<String?>();
         callbacks[request.id] = completer;
 
@@ -170,7 +179,8 @@ class NostrRemoteSigner extends NostrSigner {
           relay.send(json, forceSend: true);
         }
 
-        return await completer.future.timeout(Duration(seconds: timeout), onTimeout: () {
+        return await completer.future.timeout(Duration(seconds: timeout),
+            onTimeout: () {
           return null;
         });
       }
@@ -224,13 +234,9 @@ class NostrRemoteSigner extends NostrSigner {
     eventJsonMap.remove("pubkey");
     eventJsonMap.remove("sig");
     var eventJsonText = jsonEncode(eventJsonMap);
-    // print("eventJsonText");
-    // print(eventJsonText);
     var request = NostrRemoteRequest("sign_event", [eventJsonText]);
     var result = await sendAndWaitForResult(request);
     if (StringUtil.isNotBlank(result)) {
-      // print("signEventResult");
-      // print(result);
       var eventMap = jsonDecode(result!);
       return Event.fromJson(eventMap);
     }
@@ -238,8 +244,7 @@ class NostrRemoteSigner extends NostrSigner {
     return null;
   }
 
-  List<String>? _remotePubkeyTags;
-
+  /// Returns the remote signer public key tags.
   List<String> getRemoteSignerPubkeyTags() {
     _remotePubkeyTags ??= ["p", info.remoteSignerPubkey];
     return _remotePubkeyTags!;

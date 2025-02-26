@@ -4,18 +4,26 @@ import '../utils/string_util.dart';
 
 /// This client is designed for nostr client.
 class NostrRemoteSignerInfo {
+  /// The public key of the remote signer.
   String remoteSignerPubkey;
 
+  /// The list of relay URLs.
   List<String> relays;
 
+  /// An optional secret, can be null.
   String? optionalSecret;
 
-  // Client signer nsec, sometime need to save all info in one place, so nsec should save as a par here.
+  /// The client's signer nsec, sometimes needed to save all info in one place.
+  /// Can be null.
   String? nsec;
 
-  // User Pubkey, sometime need to save all info in one place, so nsec should save as a par here.
+  /// The user's public key, sometimes needed to save all info in one place.
+  /// Can be null.
   String? userPubkey;
 
+  /// Constructs a [NostrRemoteSignerInfo] with the required remote signer
+  /// public key and list of relay URLs.
+  /// Optional parameters include the secret, nsec, and user public key.
   NostrRemoteSignerInfo({
     required this.remoteSignerPubkey,
     required this.relays,
@@ -45,17 +53,16 @@ class NostrRemoteSignerInfo {
     return uri.toString();
   }
 
-  static bool isBunkerUrl(String? bunkerUrlText) {
-    if (bunkerUrlText != null) {
-      return bunkerUrlText.startsWith("bunker://");
-    }
-
-    return false;
+  /// Checks if the given [url] is a valid bunker URL.
+  static bool isBunkerUrl(String? url) {
+    if (url == null) return false;
+    return url.startsWith("bunker://");
   }
 
-  static NostrRemoteSignerInfo? parseBunkerUrl(String bunkerUrlText,
-      {String? nsec}) {
-    var uri = Uri.parse(bunkerUrlText);
+  /// Parses a bunker URL and returns a [NostrRemoteSignerInfo] object if valid.
+  /// If nsec is not provided, it will be generated.
+  static NostrRemoteSignerInfo? parseBunkerUrl(String url, {String? nsec}) {
+    var uri = Uri.parse(url);
 
     var pars = uri.queryParametersAll;
 
